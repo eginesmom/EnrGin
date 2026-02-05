@@ -1152,7 +1152,8 @@
 
     <script>
         // ==================== CONFIGURACIÓN FASTAPI ====================
-        const API_URL = 'http://localhost:8000/api';
+        // Detecta automáticamente si es local o producción
+        const API_URL = window.location.origin + '/api';
 
         let currentCharacterId = null;
         let currentCharacter = null;
