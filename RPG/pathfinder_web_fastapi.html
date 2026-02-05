@@ -1,0 +1,1886 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pathfinder RPG - Gestor de Personajes (FastAPI)</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: #0f3460;
+            border-radius: 10px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        header {
+            background: url('https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSwGdUUdbvsLz15uM8XHg41YBmdSnMhvRy3UA&s') center/cover no-repeat;
+            padding: 30px;
+            text-align: center;
+            border-bottom: 3px solid #333;
+            position: relative;
+        }
+
+        header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 0;
+        }
+
+        header > * {
+            position: relative;
+            z-index: 1;
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        header p {
+            font-size: 0.95em;
+            opacity: 0.9;
+        }
+
+        .server-status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            margin-top: 10px;
+        }
+
+        .server-status.connected {
+            background: #27ae60;
+        }
+
+        .server-status.disconnected {
+            background: #c0392b;
+        }
+
+        main {
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            gap: 0;
+            min-height: calc(100vh - 200px);
+        }
+
+        nav {
+            background: #1a2540;
+            padding: 0;
+            border-right: 2px solid #e94560;
+        }
+
+        nav button {
+            width: 100%;
+            padding: 15px 20px;
+            border: none;
+            background: transparent;
+            color: #e0e0e0;
+            text-align: left;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.3s;
+            border-left: 4px solid transparent;
+        }
+
+        nav button:hover {
+            background: #2d3e5f;
+            border-left-color: #e94560;
+            padding-left: 25px;
+        }
+
+        nav button.active {
+            background: #e94560;
+            color: white;
+            border-left-color: #a02438;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .section {
+            display: none;
+        }
+
+        .section.active {
+            display: block;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* SECCIÓN: PERSONAJES */
+        .characters-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .character-card {
+            background: #1a2540;
+            border: 2px solid #e94560;
+            border-radius: 8px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .character-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(233, 69, 96, 0.3);
+        }
+
+        .character-card h3 {
+            color: #e94560;
+            margin-bottom: 10px;
+            font-size: 1.3em;
+        }
+
+        .character-card p {
+            font-size: 0.9em;
+            margin: 5px 0;
+            opacity: 0.85;
+        }
+
+        .character-card .hp-bar {
+            margin-top: 15px;
+            height: 20px;
+            background: #0f3460;
+            border-radius: 3px;
+            overflow: hidden;
+            border: 1px solid #e94560;
+        }
+
+        .character-card .hp-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #2ecc71, #27ae60);
+            transition: width 0.3s;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+
+        .btn-primary {
+            background: #e94560;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #d63447;
+            transform: scale(1.05);
+        }
+
+        .btn-secondary {
+            background: #2d3e5f;
+            color: #e0e0e0;
+        }
+
+        .btn-secondary:hover {
+            background: #3d4e6f;
+        }
+
+        .btn-danger {
+            background: #c0392b;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #a93226;
+        }
+
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #1e8449;
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 0.85em;
+        }
+
+        /* FORMULARIOS */
+        form {
+            background: #1a2540;
+            padding: 25px;
+            border-radius: 8px;
+            border: 1px solid #2d3e5f;
+            max-width: 600px;
+        }
+
+        form h2 {
+            color: #e94560;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group.grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .form-group.grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #e0e0e0;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            background: #0f3460;
+            border: 1px solid #2d3e5f;
+            border-radius: 5px;
+            color: #e0e0e0;
+            font-size: 1em;
+            transition: all 0.3s;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #e94560;
+            box-shadow: 0 0 10px rgba(233, 69, 96, 0.2);
+        }
+
+        /* TABS */
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #2d3e5f;
+            margin-bottom: 20px;
+        }
+
+        .tab-button {
+            background: transparent;
+            border: none;
+            color: #e0e0e0;
+            padding: 12px 20px;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .tab-button:hover {
+            color: #e94560;
+        }
+
+        .tab-button.active {
+            color: #e94560;
+            border-bottom-color: #e94560;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* TABLA */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #1a2540;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        thead {
+            background: #2d3e5f;
+        }
+
+        th {
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid #e94560;
+            color: #e94560;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #2d3e5f;
+        }
+
+        tr:hover {
+            background: #243447;
+        }
+
+        /* MODAL */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.3s;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #0f3460;
+            padding: 30px;
+            border-radius: 8px;
+            border: 2px solid #e94560;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            animation: slideIn 0.3s;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #2d3e5f;
+        }
+
+        .modal-header h2 {
+            color: #e94560;
+            margin: 0;
+        }
+
+        .close-modal {
+            background: none;
+            border: none;
+            color: #e0e0e0;
+            font-size: 24px;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+
+        .close-modal:hover {
+            color: #e94560;
+        }
+
+        /* NOTIFICACIONES */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            border-radius: 5px;
+            color: white;
+            animation: slideInRight 0.3s;
+            z-index: 2000;
+        }
+
+        .notification.success {
+            background: #27ae60;
+        }
+
+        .notification.error {
+            background: #c0392b;
+        }
+
+        .notification.info {
+            background: #3498db;
+        }
+
+        @keyframes slideInRight {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        /* ATRIBUTOS */
+        .attributes-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .inventory-cards-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            padding: 10px 0;
+        }
+
+        .inventory-card-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .item-quantity-side {
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #e94560;
+            min-width: 30px;
+        }
+
+        .inventory-card {
+            position: relative;
+            width: 100px;
+            height: 140px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .inventory-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.4);
+        }
+
+        .inventory-card img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            cursor: pointer;
+        }
+
+        .inventory-card .card-delete-btn {
+            position: absolute;
+            bottom: 5px;
+            right: 5px;
+            width: 24px;
+            height: 24px;
+            background: rgba(220, 53, 69, 0.9);
+            border: none;
+            border-radius: 50%;
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .inventory-card:hover .card-delete-btn {
+            opacity: 1;
+        }
+
+        .inventory-card .card-delete-btn:hover {
+            background: #c82333;
+        }
+
+        .card-quantity-controls {
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            right: 5px;
+            display: flex;
+            justify-content: space-between;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 2;
+        }
+
+        .inventory-card:hover .card-quantity-controls {
+            opacity: 1;
+        }
+
+        .qty-btn {
+            width: 24px;
+            height: 24px;
+            border: none;
+            border-radius: 50%;
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.1s;
+        }
+
+        .qty-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .qty-minus {
+            background: rgba(220, 53, 69, 0.9);
+        }
+
+        .qty-minus:hover {
+            background: #c82333;
+        }
+
+        .qty-plus {
+            background: rgba(40, 167, 69, 0.9);
+        }
+
+        .qty-plus:hover {
+            background: #218838;
+        }
+
+        .attribute-box {
+            background: #1a2540;
+            border: 2px solid #2d3e5f;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            transition: all 0.3s;
+        }
+
+        .attribute-box:hover {
+            border-color: #e94560;
+        }
+
+        .attribute-box .label {
+            font-size: 0.9em;
+            color: #e0e0e0;
+            margin-bottom: 8px;
+        }
+
+        .attribute-box .value {
+            font-size: 2em;
+            color: #e94560;
+            font-weight: bold;
+        }
+
+        .attribute-box .modifier {
+            font-size: 0.85em;
+            color: #27ae60;
+            margin-top: 5px;
+        }
+
+        /* CARGA */
+        .weight-info {
+            background: #1a2540;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #e94560;
+            margin: 20px 0;
+        }
+
+        .weight-bar {
+            height: 25px;
+            background: #0f3460;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 10px;
+            border: 1px solid #2d3e5f;
+        }
+
+        .weight-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #27ae60 0%, #f39c12 50%, #c0392b 100%);
+            transition: width 0.3s;
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 768px) {
+            main {
+                grid-template-columns: 1fr;
+            }
+
+            nav {
+                display: flex;
+                border-right: none;
+                border-bottom: 2px solid #e94560;
+                overflow-x: auto;
+            }
+
+            nav button {
+                white-space: nowrap;
+                flex: 0 0 auto;
+            }
+
+            .characters-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .form-group.grid-2,
+            .form-group.grid-3 {
+                grid-template-columns: 1fr;
+            }
+
+            header h1 {
+                font-size: 1.8em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>⚔️ Pathfinder RPG Manager</h1>
+            <p>Gestor de Personajes para Pathfinder 2E</p>
+            <div id="serverStatus" class="server-status disconnected">🔴 Conectando a FastAPI...</div>
+        </header>
+
+        <main>
+            <nav id="nav">
+                <button class="nav-btn active" data-section="characters">Personajes</button>
+                <button class="nav-btn" data-section="skills">Habilidades</button>
+                <button class="nav-btn" data-section="items-library">Biblioteca Objetos</button>
+                <button class="nav-btn" data-section="skills-library">Biblioteca Habilidades</button>
+            </nav>
+
+            <div class="content">
+                <!-- SECCIÓN: PERSONAJES -->
+                <section id="characters" class="section active">
+                    <h2>Mis Personajes</h2>
+                    <div style="margin-bottom: 20px;">
+                        <button class="btn btn-primary" onclick="openCreateCharacterModal()">+ Nuevo Personaje</button>
+                    </div>
+                    <div class="characters-grid" id="charactersList"></div>
+                </section>
+
+                <!-- SECCIÓN: DETALLE DEL PERSONAJE -->
+                <section id="character-detail" class="section">
+                    <div id="characterDetailContent" style="display: none;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <h2 id="charName">Detalles del Personaje</h2>
+                            <button class="btn btn-secondary btn-small" onclick="switchSection('characters')">Volver</button>
+                        </div>
+
+                        <div class="tabs">
+                            <button class="tab-button active" data-tab="basic-info">Info Básica</button>
+                            <button class="tab-button" data-tab="attributes">Atributos</button>
+                            <button class="tab-button" data-tab="char-inventory">Inventario</button>
+                            <button class="tab-button" data-tab="char-skills">Habilidades</button>
+                        </div>
+
+                        <!-- INFO BÁSICA -->
+                        <div id="basic-info" class="tab-content active">
+                            <div class="form-group grid-2">
+                                <div>
+                                    <label>Nivel:</label>
+                                    <input type="number" id="charLevel" min="1" max="20" value="1">
+                                </div>
+                                <div>
+                                    <label>HP Máximo:</label>
+                                    <input type="number" id="charHPMax" min="0" value="10">
+                                </div>
+                            </div>
+
+                            <div class="form-group grid-2">
+                                <div>
+                                    <label>HP Actual:</label>
+                                    <input type="number" id="charHPCurrent" min="0" value="10">
+                                </div>
+                                <div>
+                                    <label>Oro:</label>
+                                    <input type="number" id="charGold" min="0" value="0">
+                                </div>
+                            </div>
+
+                            <div class="form-group grid-2">
+                                <div>
+                                    <label>Clase:</label>
+                                    <select id="charClass">
+                                        <option>Alquimista</option>
+                                        <option>Bárbaro</option>
+                                        <option>Bardo</option>
+                                        <option>Campeón</option>
+                                        <option>Clérigo</option>
+                                        <option>Druida</option>
+                                        <option>Hechicero</option>
+                                        <option>Mago</option>
+                                        <option>Monje</option>
+                                        <option>Pícaro</option>
+                                        <option>Ranger</option>
+                                        <option>Mago Luchador</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label>Raza:</label>
+                                    <select id="charRace">
+                                        <option>Humano</option>
+                                        <option>Elfo</option>
+                                        <option>Enano</option>
+                                        <option>Gnomo</option>
+                                        <option>Halfling</option>
+                                        <option>Orc</option>
+                                        <option>Tiefling</option>
+                                        <option>Dragonborn</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <button class="btn btn-primary" onclick="updateCharacterDetails()">Guardar Cambios</button>
+                        </div>
+
+                        <!-- ATRIBUTOS -->
+                        <div id="attributes" class="tab-content">
+                            <div class="attributes-grid">
+                                <div class="attribute-box">
+                                    <div class="label">Fuerza</div>
+                                    <input type="number" class="char-attr" data-attr="fuerza" min="3" max="20" value="10" style="width: 100%; text-align: center;">
+                                    <div class="modifier" id="mod-fuerza">+0</div>
+                                </div>
+                                <div class="attribute-box">
+                                    <div class="label">Destreza</div>
+                                    <input type="number" class="char-attr" data-attr="destreza" min="3" max="20" value="10" style="width: 100%; text-align: center;">
+                                    <div class="modifier" id="mod-destreza">+0</div>
+                                </div>
+                                <div class="attribute-box">
+                                    <div class="label">Constitución</div>
+                                    <input type="number" class="char-attr" data-attr="constitucion" min="3" max="20" value="10" style="width: 100%; text-align: center;">
+                                    <div class="modifier" id="mod-constitucion">+0</div>
+                                </div>
+                                <div class="attribute-box">
+                                    <div class="label">Inteligencia</div>
+                                    <input type="number" class="char-attr" data-attr="inteligencia" min="3" max="20" value="10" style="width: 100%; text-align: center;">
+                                    <div class="modifier" id="mod-inteligencia">+0</div>
+                                </div>
+                                <div class="attribute-box">
+                                    <div class="label">Sabiduría</div>
+                                    <input type="number" class="char-attr" data-attr="sabiduria" min="3" max="20" value="10" style="width: 100%; text-align: center;">
+                                    <div class="modifier" id="mod-sabiduria">+0</div>
+                                </div>
+                                <div class="attribute-box">
+                                    <div class="label">Carisma</div>
+                                    <input type="number" class="char-attr" data-attr="carisma" min="3" max="20" value="10" style="width: 100%; text-align: center;">
+                                    <div class="modifier" id="mod-carisma">+0</div>
+                                </div>
+                            </div>
+                            <button class="btn btn-primary" onclick="updateCharacterAttributes()">Guardar Atributos</button>
+                        </div>
+
+                        <!-- INVENTARIO DEL PERSONAJE -->
+                        <div id="char-inventory" class="tab-content">
+                            <div style="margin-bottom: 15px;">
+                                <button class="btn btn-primary btn-small" onclick="openAddItemModal()">+ Agregar Objeto</button>
+                            </div>
+                            <div class="weight-info" style="margin-bottom: 15px;">
+                                <span>Peso: <strong id="charCurrentWeight">0</strong> / <strong id="charMaxWeight">50</strong> lb</span>
+                                <div class="weight-bar" style="height: 8px; background: #333; border-radius: 4px; margin-top: 5px;">
+                                    <div id="charWeightFill" style="height: 100%; background: #4CAF50; border-radius: 4px; width: 0%;"></div>
+                                </div>
+                            </div>
+                            <div id="charInventoryCards" class="inventory-cards-grid"></div>
+                        </div>
+
+                        <!-- HABILIDADES DEL PERSONAJE -->
+                        <div id="char-skills" class="tab-content">
+                            <div style="margin-bottom: 15px;">
+                                <button class="btn btn-primary btn-small" onclick="openAddSkillModal()">+ Agregar Habilidad</button>
+                            </div>
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Habilidad</th>
+                                        <th>Atributo</th>
+                                        <th>Rango</th>
+                                        <th>Entrenamiento</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="charSkillsBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div id="noCharacterSelected" style="text-align: center; padding: 40px;">
+                        <p>Selecciona un personaje para ver sus detalles</p>
+                    </div>
+                </section>
+
+                <!-- SECCIÓN: HABILIDADES -->
+                <section id="skills" class="section">
+                    <h2>Habilidades</h2>
+                    <div id="skillsContent" style="display: none;">
+                        <div style="margin-bottom: 20px;">
+                            <button class="btn btn-primary btn-small" onclick="openAddSkillModal()">+ Agregar Habilidad</button>
+                        </div>
+
+                        <table id="skillsTable">
+                            <thead>
+                                <tr>
+                                    <th>Habilidad</th>
+                                    <th>Atributo</th>
+                                    <th>Rango</th>
+                                    <th>Entrenamiento</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="skillsBody">
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="noSkillsSelected" style="text-align: center; padding: 40px;">
+                        <p>Selecciona un personaje para ver sus habilidades</p>
+                    </div>
+                </section>
+
+                <!-- SECCIÓN: BIBLIOTECA DE OBJETOS -->
+                <section id="items-library" class="section">
+                    <h2>Biblioteca de Objetos</h2>
+                    <div style="margin-bottom: 20px;">
+                        <button class="btn btn-primary btn-small" onclick="openCreateItemModal()">+ Crear Objeto</button>
+                    </div>
+                    <table id="itemsLibraryTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 80px;">Carta</th>
+                                <th>Nombre</th>
+                                <th>Tipo</th>
+                                <th>Peso</th>
+                                <th>Valor</th>
+                                <th>Descripción</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="itemsLibraryBody">
+                        </tbody>
+                    </table>
+                </section>
+
+                <!-- SECCIÓN: BIBLIOTECA DE HABILIDADES -->
+                <section id="skills-library" class="section">
+                    <h2>Biblioteca de Habilidades</h2>
+                    <div style="margin-bottom: 20px;">
+                        <button class="btn btn-primary btn-small" onclick="openCreateSkillLibraryModal()">+ Crear Habilidad</button>
+                    </div>
+                    <table id="skillsLibraryTable">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Clase</th>
+                                <th>Nivel Mínimo</th>
+                                <th>Entrenamiento</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="skillsLibraryBody">
+                        </tbody>
+                    </table>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- MODALES -->
+
+    <!-- Modal: Crear/Editar Personaje -->
+    <div id="characterModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="characterModalTitle">Nuevo Personaje</h2>
+                <button class="close-modal" onclick="closeModal('characterModal')">&times;</button>
+            </div>
+            <form id="characterForm" onsubmit="saveCharacter(event)">
+                <div class="form-group">
+                    <label>Nombre:</label>
+                    <input type="text" id="modalCharName" required>
+                </div>
+                <div class="form-group grid-2">
+                    <div>
+                        <label>Clase:</label>
+                        <select id="modalCharClass">
+                            <option>Alquimista</option>
+                            <option>Bárbaro</option>
+                            <option>Bardo</option>
+                            <option>Campeón</option>
+                            <option>Clérigo</option>
+                            <option>Druida</option>
+                            <option>Hechicero</option>
+                            <option>Mago</option>
+                            <option>Monje</option>
+                            <option>Pícaro</option>
+                            <option>Ranger</option>
+                            <option>Mago Luchador</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Raza:</label>
+                        <select id="modalCharRace">
+                            <option>Humano</option>
+                            <option>Elfo</option>
+                            <option>Enano</option>
+                            <option>Gnomo</option>
+                            <option>Halfling</option>
+                            <option>Orc</option>
+                            <option>Tiefling</option>
+                            <option>Dragonborn</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>HP Máximo:</label>
+                    <input type="number" id="modalCharHP" min="1" value="10" required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Crear Personaje</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Agregar Objeto al Inventario -->
+    <div id="addItemModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Agregar Objeto</h2>
+                <button class="close-modal" onclick="closeModal('addItemModal')">&times;</button>
+            </div>
+            <form id="addItemForm" onsubmit="addInventoryItem(event)">
+                <div class="form-group">
+                    <label>Objeto:</label>
+                    <select id="itemSelect" required>
+                        <option value="">Selecciona un objeto...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Cantidad:</label>
+                    <input type="number" id="itemQuantity" min="1" value="1" required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Agregar</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Agregar Habilidad -->
+    <div id="addSkillModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Agregar Habilidad</h2>
+                <button class="close-modal" onclick="closeModal('addSkillModal')">&times;</button>
+            </div>
+            <form id="addSkillForm" onsubmit="addCharacterSkill(event)">
+                <div class="form-group">
+                    <label>Habilidad:</label>
+                    <select id="skillSelect" required>
+                        <option value="">Selecciona una habilidad...</option>
+                    </select>
+                </div>
+                <div class="form-group grid-2">
+                    <div>
+                        <label>Rango:</label>
+                        <input type="number" id="skillRank" min="0" max="4" value="0">
+                    </div>
+                    <div>
+                        <label>Entrenamiento:</label>
+                        <select id="skillTraining">
+                            <option>Untrained</option>
+                            <option>Trained</option>
+                            <option>Expert</option>
+                            <option>Master</option>
+                            <option>Legendary</option>
+                        </select>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Agregar</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Crear Objeto -->
+    <div id="createItemModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Crear Objeto</h2>
+                <button class="close-modal" onclick="closeModal('createItemModal')">&times;</button>
+            </div>
+            <form id="createItemForm" onsubmit="createLibraryItem(event)">
+                <div class="form-group">
+                    <label>Carta (Imagen):</label>
+                    <input type="file" id="itemImage" accept="image/*" onchange="previewItemImage(event)">
+                    <img id="itemImagePreview" src="" alt="" style="display: none; max-width: 150px; max-height: 200px; margin-top: 10px; border-radius: 8px; border: 2px solid #444;">
+                </div>
+                <div class="form-group">
+                    <label>Nombre:</label>
+                    <input type="text" id="itemName" required>
+                </div>
+                <div class="form-group">
+                    <label>Tipo:</label>
+                    <select id="itemType">
+                        <option>Arma</option>
+                        <option>Armadura</option>
+                        <option>Poción</option>
+                        <option>Joya</option>
+                        <option>Herramienta</option>
+                        <option>Consumible</option>
+                        <option>Miscellaneous</option>
+                    </select>
+                </div>
+                <div class="form-group grid-2">
+                    <div>
+                        <label>Peso (lb):</label>
+                        <input type="number" id="itemWeight" min="0" step="0.1" value="0">
+                    </div>
+                    <div>
+                        <label>Valor (po):</label>
+                        <input type="number" id="itemValue" min="0" value="0">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Descripción:</label>
+                    <textarea id="itemDesc" rows="3"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Crear</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Crear Habilidad -->
+    <div id="createSkillModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Crear Habilidad</h2>
+                <button class="close-modal" onclick="closeModal('createSkillModal')">&times;</button>
+            </div>
+            <form id="createSkillForm" onsubmit="createLibrarySkill(event)">
+                <div class="form-group">
+                    <label>Nombre:</label>
+                    <input type="text" id="skillName" required>
+                </div>
+                <div class="form-group grid-2">
+                    <div>
+                        <label>Clase:</label>
+                        <select id="skillClass">
+                            <option>-</option>
+                            <option>Todos</option>
+                            <option>Guerrero</option>
+                            <option>Mago</option>
+                            <option>Clérigo</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Nivel Mínimo:</label>
+                        <input type="number" id="skillMinLevel" min="1" max="20" value="1">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Entrenamiento:</label>
+                    <select id="skillTrainingLib">
+                        <option>Untrained</option>
+                        <option>Trained</option>
+                        <option>Expert</option>
+                        <option>Master</option>
+                        <option>Legendary</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Crear</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Ver Imagen Grande -->
+    <div id="imageViewerModal" class="modal" onclick="closeModal('imageViewerModal')">
+        <div style="display: flex; justify-content: center; align-items: center; height: 100%; padding: 20px;">
+            <img id="imageViewerImg" src="" alt="" style="max-width: 90%; max-height: 90%; border-radius: 12px; box-shadow: 0 10px 50px rgba(0,0,0,0.5); cursor: pointer;" onclick="event.stopPropagation();">
+            <button class="close-modal" onclick="closeModal('imageViewerModal')" style="position: absolute; top: 20px; right: 30px; font-size: 40px; background: none; border: none; color: white; cursor: pointer;">&times;</button>
+        </div>
+    </div>
+
+    <script>
+        // ==================== CONFIGURACIÓN FASTAPI ====================
+        const API_URL = 'http://localhost:8000/api';
+
+        let currentCharacterId = null;
+        let currentCharacter = null;
+        let itemsLibrary = [];
+        let skillsLibrary = [];
+
+        // ==================== FUNCIONES API ====================
+        async function api(endpoint, options = {}) {
+            const url = API_URL + endpoint;
+            const config = {
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                ...options
+            };
+            
+            if (options.body && typeof options.body === 'object') {
+                config.body = JSON.stringify(options.body);
+            }
+
+            const response = await fetch(url, config);
+            
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({ detail: 'Error desconocido' }));
+                throw new Error(error.detail || `Error ${response.status}`);
+            }
+            
+            // Para DELETE que no devuelve contenido
+            if (response.status === 204 || response.headers.get('content-length') === '0') {
+                return null;
+            }
+            
+            return response.json();
+        }
+
+        // ==================== VERIFICAR CONEXIÓN ====================
+        async function checkConnection() {
+            const statusEl = document.getElementById('serverStatus');
+            try {
+                const data = await api('/health');
+                statusEl.textContent = '🟢 Conectado a FastAPI';
+                statusEl.className = 'server-status connected';
+                return true;
+            } catch (error) {
+                console.error('Error de conexión:', error);
+                statusEl.textContent = '🔴 Error de conexión - Inicia el servidor FastAPI';
+                statusEl.className = 'server-status disconnected';
+                return false;
+            }
+        }
+
+        // ==================== UTILIDADES ====================
+        function notify(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            setTimeout(() => notification.remove(), 3000);
+        }
+
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.add('active');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        function viewImageLarge(imageSrc) {
+            if (!imageSrc) return;
+            document.getElementById('imageViewerImg').src = imageSrc;
+            openModal('imageViewerModal');
+        }
+
+        function switchSection(sectionId) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(sectionId).classList.add('active');
+            const navBtn = document.querySelector(`[data-section="${sectionId}"]`);
+            if (navBtn) navBtn.classList.add('active');
+        }
+
+        function calculateModifier(value) {
+            return Math.floor((value - 10) / 2);
+        }
+
+        // ==================== GESTIÓN DE PERSONAJES ====================
+        function openCreateCharacterModal() {
+            document.getElementById('characterModalTitle').textContent = 'Nuevo Personaje';
+            document.getElementById('characterForm').reset();
+            document.getElementById('modalCharHP').value = 10;
+            openModal('characterModal');
+        }
+
+        async function saveCharacter(e) {
+            e.preventDefault();
+            const character = {
+                nombre: document.getElementById('modalCharName').value,
+                clase: document.getElementById('modalCharClass').value,
+                raza: document.getElementById('modalCharRace').value,
+                nivel: 1,
+                hp_max: parseInt(document.getElementById('modalCharHP').value),
+                hp_actual: parseInt(document.getElementById('modalCharHP').value),
+                oro: 0,
+                fuerza: 10,
+                destreza: 10,
+                constitucion: 10,
+                inteligencia: 10,
+                sabiduria: 10,
+                carisma: 10,
+                notas: ''
+            };
+
+            try {
+                await api('/personajes', {
+                    method: 'POST',
+                    body: character
+                });
+                closeModal('characterModal');
+                loadCharacters();
+                notify('Personaje creado exitosamente', 'success');
+            } catch (error) {
+                console.error(error);
+                notify('Error al crear personaje: ' + error.message, 'error');
+            }
+        }
+
+        async function loadCharacters() {
+            const list = document.getElementById('charactersList');
+            list.innerHTML = '<p style="text-align: center;">Cargando...</p>';
+
+            try {
+                const characters = await api('/personajes');
+
+                list.innerHTML = '';
+
+                if (!characters || characters.length === 0) {
+                    list.innerHTML = '<p style="text-align: center; opacity: 0.7;">No hay personajes. ¡Crea uno nuevo!</p>';
+                    return;
+                }
+
+                characters.forEach(char => {
+                    const hpPercent = (char.hp_actual / char.hp_max) * 100;
+                    const card = document.createElement('div');
+                    card.className = 'character-card';
+                    card.onclick = () => selectCharacter(char.id);
+                    card.innerHTML = `
+                        <h3>${char.nombre}</h3>
+                        <p><strong>Clase:</strong> ${char.clase || 'Sin clase'}</p>
+                        <p><strong>Raza:</strong> ${char.raza || 'Humano'}</p>
+                        <p><strong>Nivel:</strong> ${char.nivel || 1}</p>
+                        <p><strong>Oro:</strong> ${char.oro || 0} po</p>
+                        <div class="hp-bar">
+                            <div class="hp-fill" style="width: ${hpPercent}%"></div>
+                        </div>
+                        <p style="font-size: 0.85em; margin-top: 8px;">HP: ${char.hp_actual}/${char.hp_max}</p>
+                        <div class="btn-group" style="margin-top: 15px;">
+                            <button class="btn btn-danger btn-small" onclick="event.stopPropagation(); deleteCharacter(${char.id})">Eliminar</button>
+                        </div>
+                    `;
+                    list.appendChild(card);
+                });
+            } catch (error) {
+                console.error(error);
+                list.innerHTML = '<p style="text-align: center; color: #e94560;">Error al cargar. Verifica la conexión.</p>';
+            }
+        }
+
+        async function selectCharacter(id) {
+            currentCharacterId = id;
+            switchSection('character-detail');
+            await loadCharacterDetail();
+        }
+
+        async function deleteCharacter(id) {
+            if (confirm('¿Estás seguro de que quieres eliminar este personaje?')) {
+                try {
+                    await api(`/personajes/${id}`, { method: 'DELETE' });
+                    loadCharacters();
+                    notify('Personaje eliminado', 'success');
+                } catch (error) {
+                    notify('Error al eliminar: ' + error.message, 'error');
+                }
+            }
+        }
+
+        // ==================== DETALLE DEL PERSONAJE ====================
+        async function loadCharacterDetail() {
+            if (!currentCharacterId) {
+                document.getElementById('characterDetailContent').style.display = 'none';
+                document.getElementById('noCharacterSelected').style.display = 'block';
+                return;
+            }
+
+            try {
+                const data = await api(`/personajes/${currentCharacterId}`);
+                currentCharacter = data;
+
+                document.getElementById('characterDetailContent').style.display = 'block';
+                document.getElementById('noCharacterSelected').style.display = 'none';
+                document.getElementById('charName').textContent = currentCharacter.nombre;
+
+                document.getElementById('charLevel').value = currentCharacter.nivel || 1;
+                document.getElementById('charHPMax').value = currentCharacter.hp_max;
+                document.getElementById('charHPCurrent').value = currentCharacter.hp_actual;
+                document.getElementById('charGold').value = currentCharacter.oro || 0;
+                document.getElementById('charClass').value = currentCharacter.clase || 'Mago';
+                document.getElementById('charRace').value = currentCharacter.raza || 'Humano';
+
+                // Cargar atributos
+                const attributes = ['fuerza', 'destreza', 'constitucion', 'inteligencia', 'sabiduria', 'carisma'];
+                attributes.forEach(attr => {
+                    const value = currentCharacter[attr] || 10;
+                    const input = document.querySelector(`[data-attr="${attr}"]`);
+                    if (input) {
+                        input.value = value;
+                        document.getElementById(`mod-${attr}`).textContent = `${calculateModifier(value) >= 0 ? '+' : ''}${calculateModifier(value)}`;
+                    }
+                });
+
+                loadInventory();
+                loadSkills();
+            } catch (error) {
+                console.error(error);
+                notify('Error al cargar personaje', 'error');
+            }
+        }
+
+        async function updateCharacterDetails() {
+            if (!currentCharacterId) return;
+
+            const updates = {
+                nivel: parseInt(document.getElementById('charLevel').value),
+                hp_max: parseInt(document.getElementById('charHPMax').value),
+                hp_actual: parseInt(document.getElementById('charHPCurrent').value),
+                oro: parseInt(document.getElementById('charGold').value),
+                clase: document.getElementById('charClass').value,
+                raza: document.getElementById('charRace').value
+            };
+
+            try {
+                await api(`/personajes/${currentCharacterId}`, {
+                    method: 'PUT',
+                    body: updates
+                });
+                Object.assign(currentCharacter, updates);
+                notify('Detalles actualizados', 'success');
+            } catch (error) {
+                notify('Error al actualizar: ' + error.message, 'error');
+            }
+        }
+
+        async function updateCharacterAttributes() {
+            if (!currentCharacterId) return;
+
+            const attributes = ['fuerza', 'destreza', 'constitucion', 'inteligencia', 'sabiduria', 'carisma'];
+            const updates = {};
+
+            attributes.forEach(attr => {
+                updates[attr] = parseInt(document.querySelector(`[data-attr="${attr}"]`).value);
+            });
+
+            try {
+                await api(`/personajes/${currentCharacterId}`, {
+                    method: 'PUT',
+                    body: updates
+                });
+                Object.assign(currentCharacter, updates);
+                notify('Atributos actualizados', 'success');
+            } catch (error) {
+                notify('Error al actualizar: ' + error.message, 'error');
+            }
+        }
+
+        // ==================== INICIALIZACIÓN ====================
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Tabs
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const tabName = btn.dataset.tab;
+                    document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    btn.classList.add('active');
+                    document.getElementById(tabName).classList.add('active');
+                });
+            });
+
+            // Navegación
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const sectionId = btn.dataset.section;
+                    if ((sectionId === 'inventory' || sectionId === 'skills' || sectionId === 'character-detail') && !currentCharacterId) {
+                        notify('Selecciona un personaje primero', 'error');
+                        return;
+                    }
+                    switchSection(sectionId);
+                });
+            });
+
+            // Listeners para modificadores de atributos
+            document.querySelectorAll('.char-attr').forEach(input => {
+                input.addEventListener('change', (e) => {
+                    const modifier = calculateModifier(parseInt(e.target.value));
+                    const attr = e.target.dataset.attr;
+                    document.getElementById(`mod-${attr}`).textContent = `${modifier >= 0 ? '+' : ''}${modifier}`;
+                });
+            });
+
+            // Verificar conexión y cargar datos
+            const connected = await checkConnection();
+            if (connected) {
+                loadCharacters();
+                loadItemsLibrary();
+                loadSkillsLibrary();
+            }
+        });
+
+        // ==================== INVENTARIO ====================
+        async function openAddItemModal() {
+            if (!currentCharacterId) {
+                notify('Selecciona un personaje primero', 'error');
+                return;
+            }
+            const select = document.getElementById('itemSelect');
+            select.innerHTML = '<option value="">Selecciona un objeto...</option>';
+            itemsLibrary.forEach(item => {
+                const option = document.createElement('option');
+                option.value = item.id;
+                option.textContent = `${item.nombre} (${item.peso} lb, ${item.valor} po)`;
+                select.appendChild(option);
+            });
+            openModal('addItemModal');
+        }
+
+        async function addInventoryItem(e) {
+            e.preventDefault();
+            const itemId = parseInt(document.getElementById('itemSelect').value);
+            const quantity = parseInt(document.getElementById('itemQuantity').value);
+
+            if (!itemId) {
+                notify('Selecciona un objeto', 'error');
+                return;
+            }
+
+            const item = itemsLibrary.find(i => i.id === itemId);
+            const inventoryItem = {
+                personaje_id: currentCharacterId,
+                item: item.nombre,
+                cantidad: quantity,
+                peso: item.peso,
+                descripcion: item.descripcion,
+                valor: item.valor,
+                imagen: item.imagen || null
+            };
+
+            try {
+                await api('/inventario', {
+                    method: 'POST',
+                    body: inventoryItem
+                });
+                closeModal('addItemModal');
+                loadInventory();
+                notify('Objeto agregado', 'success');
+            } catch (error) {
+                notify('Error al agregar objeto: ' + error.message, 'error');
+            }
+        }
+
+        async function loadInventory() {
+            if (!currentCharacterId) return;
+
+            try {
+                const inventory = await api(`/inventario/${currentCharacterId}`);
+
+                let totalWeight = 0;
+                const charInventoryCards = document.getElementById('charInventoryCards');
+                if (charInventoryCards) charInventoryCards.innerHTML = '';
+
+                (inventory || []).forEach(item => {
+                    const peso = (item.peso || 0) * (item.cantidad || 1);
+                    totalWeight += peso;
+                    
+                    // Añadir carta al inventario del personaje
+                    if (charInventoryCards) {
+                        const cardDiv = document.createElement('div');
+                        cardDiv.className = 'inventory-card-container';
+                        const imgSrc = item.imagen || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 140"><rect fill="%23444" width="100" height="140"/><text x="50" y="70" text-anchor="middle" fill="%23888" font-size="12">Sin imagen</text></svg>';
+                        cardDiv.innerHTML = `
+                            <div class="inventory-card">
+                                <div class="card-quantity-controls">
+                                    <button class="qty-btn qty-minus" onclick="updateItemQuantity(${item.id}, -1)" title="Quitar 1">−</button>
+                                    <button class="qty-btn qty-plus" onclick="updateItemQuantity(${item.id}, 1)" title="Añadir 1">+</button>
+                                </div>
+                                <img src="${imgSrc}" alt="${item.item}" onclick="viewImageLarge('${(item.imagen || '').replace(/'/g, "\\'")}')" title="${item.item}\nPeso: ${peso.toFixed(1)} lb">
+                                <button class="card-delete-btn" onclick="removeInventoryItem(${item.id})" title="Eliminar">×</button>
+                            </div>
+                            <span class="item-quantity-side">x${item.cantidad}</span>
+                        `;
+                        charInventoryCards.appendChild(cardDiv);
+                    }
+                });
+
+                const maxWeight = (currentCharacter?.fuerza || 10) * 5;
+                const percent = (totalWeight / maxWeight) * 100;
+                
+                // Actualizar indicadores de peso en el detalle del personaje
+                const charCurrentWeight = document.getElementById('charCurrentWeight');
+                const charMaxWeight = document.getElementById('charMaxWeight');
+                const charWeightFill = document.getElementById('charWeightFill');
+                if (charCurrentWeight) charCurrentWeight.textContent = totalWeight.toFixed(1);
+                if (charMaxWeight) charMaxWeight.textContent = maxWeight;
+                if (charWeightFill) charWeightFill.style.width = Math.min(100, percent) + '%';
+            } catch (error) {
+                notify('Error al cargar inventario: ' + error.message, 'error');
+            }
+        }
+
+        async function updateItemQuantity(id, delta) {
+            try {
+                // Obtener cantidad actual
+                const inventory = await api(`/inventario/${currentCharacterId}`);
+                const item = inventory.find(i => i.id === id);
+                
+                if (!item) return;
+                
+                const newQuantity = (item.cantidad || 1) + delta;
+                
+                if (newQuantity <= 0) {
+                    // Eliminar si llega a 0
+                    await removeInventoryItem(id);
+                } else {
+                    // Actualizar cantidad
+                    await api(`/inventario/${id}`, {
+                        method: 'PUT',
+                        body: { cantidad: newQuantity }
+                    });
+                    loadInventory();
+                }
+            } catch (error) {
+                notify('Error al actualizar cantidad: ' + error.message, 'error');
+            }
+        }
+
+        async function removeInventoryItem(id) {
+            try {
+                await api(`/inventario/${id}`, { method: 'DELETE' });
+                loadInventory();
+                notify('Objeto eliminado', 'success');
+            } catch (error) {
+                notify('Error al eliminar: ' + error.message, 'error');
+            }
+        }
+
+        // ==================== HABILIDADES ====================
+        async function openAddSkillModal() {
+            if (!currentCharacterId) {
+                notify('Selecciona un personaje primero', 'error');
+                return;
+            }
+            const select = document.getElementById('skillSelect');
+            select.innerHTML = '<option value="">Selecciona una habilidad...</option>';
+            skillsLibrary.forEach(skill => {
+                const option = document.createElement('option');
+                option.value = skill.id;
+                option.textContent = skill.nombre;
+                select.appendChild(option);
+            });
+            openModal('addSkillModal');
+        }
+
+        async function addCharacterSkill(e) {
+            e.preventDefault();
+            const skillId = parseInt(document.getElementById('skillSelect').value);
+            const rank = parseInt(document.getElementById('skillRank').value);
+            const training = document.getElementById('skillTraining').value;
+
+            if (!skillId) {
+                notify('Selecciona una habilidad', 'error');
+                return;
+            }
+
+            const skill = skillsLibrary.find(s => s.id === skillId);
+            const characterSkill = {
+                personaje_id: currentCharacterId,
+                nombre: skill.nombre,
+                atributo: skill.atributo || 'inteligencia',
+                rango: rank,
+                entrenamiento: training
+            };
+
+            try {
+                await api('/habilidades', {
+                    method: 'POST',
+                    body: characterSkill
+                });
+                closeModal('addSkillModal');
+                loadSkills();
+                notify('Habilidad agregada', 'success');
+            } catch (error) {
+                notify('Error al agregar habilidad: ' + error.message, 'error');
+            }
+        }
+
+        async function loadSkills() {
+            if (!currentCharacterId) {
+                document.getElementById('skillsContent').style.display = 'none';
+                document.getElementById('noSkillsSelected').style.display = 'block';
+                return;
+            }
+
+            document.getElementById('skillsContent').style.display = 'block';
+            document.getElementById('noSkillsSelected').style.display = 'none';
+
+            try {
+                const skills = await api(`/habilidades/${currentCharacterId}`);
+
+                // Actualizar tabla en sección Habilidades
+                const tbody = document.getElementById('skillsBody');
+                tbody.innerHTML = '';
+
+                // También actualizar tabla en detalle del personaje
+                const charSkillsBody = document.getElementById('charSkillsBody');
+                if (charSkillsBody) charSkillsBody.innerHTML = '';
+
+                (skills || []).forEach(skill => {
+                    const atributo = skill.atributo || 'inteligencia';
+                    const rowHTML = `
+                        <td>${skill.nombre}</td>
+                        <td>${atributo.charAt(0).toUpperCase() + atributo.slice(1)}</td>
+                        <td>${skill.rango}</td>
+                        <td>${skill.entrenamiento}</td>
+                        <td>
+                            <button class="btn btn-danger btn-small" onclick="removeCharacterSkill(${skill.id})">Eliminar</button>
+                        </td>
+                    `;
+                    
+                    const row = tbody.insertRow();
+                    row.innerHTML = rowHTML;
+                    
+                    // Añadir también a la tabla del detalle del personaje
+                    if (charSkillsBody) {
+                        const charRow = charSkillsBody.insertRow();
+                        charRow.innerHTML = rowHTML;
+                    }
+                });
+            } catch (error) {
+                notify('Error al cargar habilidades: ' + error.message, 'error');
+            }
+        }
+
+        async function removeCharacterSkill(id) {
+            try {
+                await api(`/habilidades/${id}`, { method: 'DELETE' });
+                loadSkills();
+                notify('Habilidad eliminada', 'success');
+            } catch (error) {
+                notify('Error al eliminar: ' + error.message, 'error');
+            }
+        }
+
+        // ==================== BIBLIOTECA DE OBJETOS ====================
+        let currentItemImage = null;
+
+        function previewItemImage(event) {
+            const file = event.target.files[0];
+            const preview = document.getElementById('itemImagePreview');
+            
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    currentItemImage = e.target.result;
+                    preview.src = currentItemImage;
+                    preview.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            } else {
+                currentItemImage = null;
+                preview.src = '';
+                preview.style.display = 'none';
+            }
+        }
+
+        function openCreateItemModal() {
+            document.getElementById('createItemForm').reset();
+            currentItemImage = null;
+            document.getElementById('itemImagePreview').src = '';
+            document.getElementById('itemImagePreview').style.display = 'none';
+            openModal('createItemModal');
+        }
+
+        async function createLibraryItem(e) {
+            e.preventDefault();
+            const item = {
+                nombre: document.getElementById('itemName').value,
+                tipo: document.getElementById('itemType').value,
+                peso: parseFloat(document.getElementById('itemWeight').value),
+                valor: parseInt(document.getElementById('itemValue').value),
+                descripcion: document.getElementById('itemDesc').value,
+                imagen: currentItemImage || null
+            };
+
+            try {
+                await api('/objetos', {
+                    method: 'POST',
+                    body: item
+                });
+                closeModal('createItemModal');
+                loadItemsLibrary();
+                notify('Objeto creado', 'success');
+            } catch (error) {
+                notify('Error al crear objeto: ' + error.message, 'error');
+            }
+        }
+
+        async function loadItemsLibrary() {
+            try {
+                const items = await api('/objetos');
+
+                itemsLibrary = items || [];
+                const tbody = document.getElementById('itemsLibraryBody');
+                tbody.innerHTML = '';
+
+                itemsLibrary.forEach(item => {
+                    const row = tbody.insertRow();
+                    const imagenHTML = item.imagen 
+                        ? `<img src="${item.imagen}" alt="${item.nombre}" style="max-width: 60px; max-height: 80px; border-radius: 4px; cursor: pointer;" onclick="viewImageLarge('${item.imagen.replace(/'/g, "\\'")}')">` 
+                        : '<span style="opacity: 0.5;">Sin imagen</span>';
+                    row.innerHTML = `
+                        <td style="text-align: center;">${imagenHTML}</td>
+                        <td>${item.nombre}</td>
+                        <td>${item.tipo || 'Misc'}</td>
+                        <td>${item.peso} lb</td>
+                        <td>${item.valor} po</td>
+                        <td>${item.descripcion || ''}</td>
+                        <td>
+                            <button class="btn btn-danger btn-small" onclick="deleteLibraryItem(${item.id})">Eliminar</button>
+                        </td>
+                    `;
+                });
+            } catch (error) {
+                console.error('Error cargando biblioteca de objetos:', error);
+            }
+        }
+
+        async function deleteLibraryItem(id) {
+            if (confirm('¿Eliminar este objeto?')) {
+                try {
+                    await api(`/objetos/${id}`, { method: 'DELETE' });
+                    loadItemsLibrary();
+                    notify('Objeto eliminado', 'success');
+                } catch (error) {
+                    notify('Error al eliminar: ' + error.message, 'error');
+                }
+            }
+        }
+
+        // ==================== BIBLIOTECA DE HABILIDADES ====================
+        function openCreateSkillLibraryModal() {
+            document.getElementById('createSkillForm').reset();
+            openModal('createSkillModal');
+        }
+
+        async function createLibrarySkill(e) {
+            e.preventDefault();
+            const skill = {
+                nombre: document.getElementById('skillName').value,
+                clase: document.getElementById('skillClass').value,
+                nivel_minimo: parseInt(document.getElementById('skillMinLevel').value),
+                entrenamiento: document.getElementById('skillTrainingLib').value,
+                atributo: 'inteligencia'
+            };
+
+            try {
+                await api('/habilidades-lib', {
+                    method: 'POST',
+                    body: skill
+                });
+                closeModal('createSkillModal');
+                loadSkillsLibrary();
+                notify('Habilidad creada', 'success');
+            } catch (error) {
+                notify('Error al crear habilidad: ' + error.message, 'error');
+            }
+        }
+
+        async function loadSkillsLibrary() {
+            try {
+                const skills = await api('/habilidades-lib');
+
+                skillsLibrary = skills || [];
+                const tbody = document.getElementById('skillsLibraryBody');
+                tbody.innerHTML = '';
+
+                skillsLibrary.forEach(skill => {
+                    const row = tbody.insertRow();
+                    row.innerHTML = `
+                        <td>${skill.nombre}</td>
+                        <td>${skill.clase || '-'}</td>
+                        <td>${skill.nivel_minimo}</td>
+                        <td>${skill.entrenamiento}</td>
+                        <td>
+                            <button class="btn btn-danger btn-small" onclick="deleteLibrarySkill(${skill.id})">Eliminar</button>
+                        </td>
+                    `;
+                });
+            } catch (error) {
+                console.error('Error cargando biblioteca de habilidades:', error);
+            }
+        }
+
+        async function deleteLibrarySkill(id) {
+            if (confirm('¿Eliminar esta habilidad?')) {
+                try {
+                    await api(`/habilidades-lib/${id}`, { method: 'DELETE' });
+                    loadSkillsLibrary();
+                    notify('Habilidad eliminada', 'success');
+                } catch (error) {
+                    notify('Error al eliminar: ' + error.message, 'error');
+                }
+            }
+        }
+
+        // Cerrar modales al hacer click fuera
+        window.addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal')) {
+                e.target.classList.remove('active');
+            }
+        });
+    </script>
+</body>
+</html>
