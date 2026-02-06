@@ -62,7 +62,11 @@ def init_db():
             inteligencia INTEGER DEFAULT 10,
             sabiduria INTEGER DEFAULT 10,
             carisma INTEGER DEFAULT 10,
-            notas TEXT DEFAULT ''
+            notas TEXT DEFAULT '',
+            equip_escudo INTEGER DEFAULT NULL,
+            equip_armadura INTEGER DEFAULT NULL,
+            equip_mano_derecha INTEGER DEFAULT NULL,
+            equip_mano_izquierda INTEGER DEFAULT NULL
         )
     ''')
     
@@ -119,6 +123,53 @@ def init_db():
         )
     ''')
     
+    # Biblioteca de armaduras predefinidas
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS armor_predefinidos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nombre TEXT NOT NULL,
+            tipo TEXT DEFAULT 'Ligera',
+            defensa INTEGER DEFAULT 0,
+            peso REAL DEFAULT 0,
+            valor INTEGER DEFAULT 0,
+            descripcion TEXT,
+            imagen TEXT
+        )
+    ''')
+    
+    # Biblioteca de armas predefinidas
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS weapons_predefinidos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nombre TEXT NOT NULL,
+            tipo TEXT DEFAULT 'Light melee',
+            clase TEXT DEFAULT 'Simple',
+            damage TEXT DEFAULT '1d6',
+            crit_rango INTEGER DEFAULT 20,
+            crit_mult INTEGER DEFAULT 2,
+            peso REAL DEFAULT 0,
+            valor INTEGER DEFAULT 0,
+            descripcion TEXT,
+            imagen TEXT
+        )
+    ''')
+    
+    # Añadir columna clase si no existe (para bases de datos existentes)
+    try:
+        cursor.execute("ALTER TABLE weapons_predefinidos ADD COLUMN clase TEXT DEFAULT 'Simple'")
+    except:
+        pass  # La columna ya existe
+    
+    # Añadir columnas crit_rango y crit_mult si no existen
+    try:
+        cursor.execute("ALTER TABLE weapons_predefinidos ADD COLUMN crit_rango INTEGER DEFAULT 20")
+    except:
+        pass
+    try:
+        cursor.execute("ALTER TABLE weapons_predefinidos ADD COLUMN crit_mult INTEGER DEFAULT 2")
+    except:
+        pass
+    
     conn.commit()
     conn.close()
     print("✅ Base de datos inicializada")
@@ -158,6 +209,10 @@ class PersonajeUpdate(BaseModel):
     sabiduria: Optional[int] = None
     carisma: Optional[int] = None
     notas: Optional[str] = None
+    equip_escudo: Optional[int] = None
+    equip_armadura: Optional[int] = None
+    equip_mano_derecha: Optional[int] = None
+    equip_mano_izquierda: Optional[int] = None
 
 
 class InventarioCreate(BaseModel):
@@ -166,7 +221,7 @@ class InventarioCreate(BaseModel):
     cantidad: Optional[int] = 1
     peso: Optional[float] = 0
     descripcion: Optional[str] = ""
-    valor: Optional[int] = 0
+    valor: Optional[float] = 0
     imagen: Optional[str] = None
 
 
@@ -186,7 +241,7 @@ class ObjetoCreate(BaseModel):
     nombre: str
     tipo: Optional[str] = "Misc"
     peso: Optional[float] = 0
-    valor: Optional[int] = 0
+    valor: Optional[float] = 0
     descripcion: Optional[str] = ""
     imagen: Optional[str] = None
 
@@ -197,6 +252,29 @@ class HabilidadLibCreate(BaseModel):
     nivel_minimo: Optional[int] = 1
     entrenamiento: Optional[str] = "Básico"
     atributo: Optional[str] = "inteligencia"
+
+
+class ArmorCreate(BaseModel):
+    nombre: str
+    tipo: Optional[str] = "Light"
+    defensa: Optional[int] = 0
+    peso: Optional[float] = 0
+    valor: Optional[float] = 0
+    descripcion: Optional[str] = ""
+    imagen: Optional[str] = None
+
+
+class WeaponCreate(BaseModel):
+    nombre: str
+    tipo: Optional[str] = "Light melee"
+    clase: Optional[str] = "Simple"
+    damage: Optional[str] = "1d6"
+    crit_rango: Optional[int] = 20
+    crit_mult: Optional[int] = 2
+    peso: Optional[float] = 0
+    valor: Optional[float] = 0
+    descripcion: Optional[str] = ""
+    imagen: Optional[str] = None
 
 
 # ==================== ENDPOINTS PERSONAJES ====================
@@ -394,6 +472,20 @@ def create_objeto(objeto: ObjetoCreate):
     return {"id": new_id, "message": "Objeto creado"}
 
 
+@app.put("/api/objetos/{id}")
+def update_objeto(id: int, objeto: ObjetoCreate):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        UPDATE objetos_predefinidos 
+        SET nombre = ?, tipo = ?, peso = ?, valor = ?, descripcion = ?, imagen = ?
+        WHERE id = ?
+    ''', (objeto.nombre, objeto.tipo, objeto.peso, objeto.valor, objeto.descripcion, objeto.imagen, id))
+    conn.commit()
+    conn.close()
+    return {"message": "Objeto actualizado"}
+
+
 @app.delete("/api/objetos/{id}")
 def delete_objeto(id: int):
     conn = get_db()
@@ -438,6 +530,106 @@ def delete_habilidad_lib(id: int):
     conn.commit()
     conn.close()
     return {"message": "Habilidad eliminada"}
+
+
+# ==================== ENDPOINTS BIBLIOTECA ARMOR ====================
+
+@app.get("/api/armor")
+def get_armor():
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM armor_predefinidos ORDER BY nombre")
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+
+@app.post("/api/armor")
+def create_armor(armor: ArmorCreate):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO armor_predefinidos (nombre, tipo, defensa, peso, valor, descripcion, imagen)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ''', (armor.nombre, armor.tipo, armor.defensa, armor.peso, armor.valor, armor.descripcion, armor.imagen))
+    conn.commit()
+    new_id = cursor.lastrowid
+    conn.close()
+    return {"id": new_id, "message": "Armor creado"}
+
+
+@app.put("/api/armor/{id}")
+def update_armor(id: int, armor: ArmorCreate):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        UPDATE armor_predefinidos 
+        SET nombre = ?, tipo = ?, defensa = ?, peso = ?, valor = ?, descripcion = ?, imagen = ?
+        WHERE id = ?
+    ''', (armor.nombre, armor.tipo, armor.defensa, armor.peso, armor.valor, armor.descripcion, armor.imagen, id))
+    conn.commit()
+    conn.close()
+    return {"message": "Armor actualizado"}
+
+
+@app.delete("/api/armor/{id}")
+def delete_armor(id: int):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM armor_predefinidos WHERE id = ?", (id,))
+    conn.commit()
+    conn.close()
+    return {"message": "Armor eliminado"}
+
+
+# ==================== ENDPOINTS BIBLIOTECA WEAPONS ====================
+
+@app.get("/api/weapons")
+def get_weapons():
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM weapons_predefinidos ORDER BY nombre")
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+
+@app.post("/api/weapons")
+def create_weapon(weapon: WeaponCreate):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO weapons_predefinidos (nombre, tipo, clase, damage, crit_rango, crit_mult, peso, valor, descripcion, imagen)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (weapon.nombre, weapon.tipo, weapon.clase, weapon.damage, weapon.crit_rango, weapon.crit_mult, weapon.peso, weapon.valor, weapon.descripcion, weapon.imagen))
+    conn.commit()
+    new_id = cursor.lastrowid
+    conn.close()
+    return {"id": new_id, "message": "Weapon creado"}
+
+
+@app.put("/api/weapons/{id}")
+def update_weapon(id: int, weapon: WeaponCreate):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        UPDATE weapons_predefinidos 
+        SET nombre = ?, tipo = ?, clase = ?, damage = ?, crit_rango = ?, crit_mult = ?, peso = ?, valor = ?, descripcion = ?, imagen = ?
+        WHERE id = ?
+    ''', (weapon.nombre, weapon.tipo, weapon.clase, weapon.damage, weapon.crit_rango, weapon.crit_mult, weapon.peso, weapon.valor, weapon.descripcion, weapon.imagen, id))
+    conn.commit()
+    conn.close()
+    return {"message": "Weapon actualizado"}
+
+
+@app.delete("/api/weapons/{id}")
+def delete_weapon(id: int):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM weapons_predefinidos WHERE id = ?", (id,))
+    conn.commit()
+    conn.close()
+    return {"message": "Weapon eliminado"}
 
 
 # ==================== HEALTH CHECK ====================
